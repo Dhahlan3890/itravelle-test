@@ -8,30 +8,54 @@ const API_BASE = 'http://localhost:8000/api';
 
 const NewLeadForm = () => {
   const navigate = useNavigate();
-  const [metadata, setMetadata] = useState({ countries: [], cities: [] });
+  const [tboCountries, setTboCountries] = useState([]);
+  const [tboCities, setTboCities] = useState([]);
+  const [loading, setLoading] = useState({ countries: false, cities: false });
+  
+  // Internal state to track codes for API calls
+  const [selectionCodes, setSelectionCodes] = useState({
+    country: '',
+    city: ''
+  });
+
   const [formData, setFormData] = useState({
     name: '',
     client_account: '',
     sub_account: '',
     contact_person: '',
-    country: '',
-    city: '',
+    country: '', // This will store the NAME
+    city: '',    // This will store the NAME
     pax_count: 1,
     start_date: '',
     end_date: '',
     currency: 'USD'
   });
 
+  // Fetch TBO countries on mount
   useEffect(() => {
-    fetchMetadata();
+    const fetchCountries = async () => {
+      setLoading(prev => ({...prev, countries: true}));
+      try {
+        const res = await axios.get(`${API_BASE}/metadata/countries/`);
+        setTboCountries(res.data);
+      } catch (err) { console.error(err); }
+      finally { setLoading(prev => ({...prev, countries: false})); }
+    };
+    fetchCountries();
   }, []);
 
-  const fetchMetadata = async () => {
-    try {
-      const res = await axios.get(`${API_BASE}/metadata/`);
-      setMetadata(res.data);
-    } catch (err) { console.error(err); }
-  };
+  // Fetch TBO cities when country code changes
+  useEffect(() => {
+    const fetchCities = async () => {
+      setLoading(prev => ({...prev, cities: true}));
+      try {
+        const res = await axios.get(`${API_BASE}/metadata/cities/?country_code=${selectionCodes.country}`);
+        setTboCities(res.data);
+      } catch (err) { console.error(err); }
+      finally { setLoading(prev => ({...prev, cities: false})); }
+    };
+    if (selectionCodes.country) fetchCities();
+  }, [selectionCodes.country]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -81,18 +105,26 @@ const NewLeadForm = () => {
 
           <SearchableSelect 
             label="Country"
-            placeholder="Select Country"
-            options={metadata.countries}
-            value={formData.country}
-            onChange={val => setFormData({...formData, country: val})}
+            placeholder={loading.countries ? "Loading..." : "Select Country"}
+            options={tboCountries}
+            value={selectionCodes.country}
+            onChange={val => {
+              const selected = tboCountries.find(c => c.code === val);
+              setSelectionCodes({ ...selectionCodes, country: val, city: '' });
+              setFormData({ ...formData, country: selected ? selected.name : val, city: '' });
+            }}
           />
 
           <SearchableSelect 
             label="City"
-            placeholder="Select City"
-            options={metadata.cities}
-            value={formData.city}
-            onChange={val => setFormData({...formData, city: val})}
+            placeholder={loading.cities ? "Loading..." : "Select City"}
+            options={tboCities}
+            value={selectionCodes.city}
+            onChange={val => {
+              const selected = tboCities.find(c => c.code === val);
+              setSelectionCodes({ ...selectionCodes, city: val });
+              setFormData({ ...formData, city: selected ? selected.name : val });
+            }}
           />
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
