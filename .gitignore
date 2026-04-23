@@ -1,0 +1,21 @@
+# Ignore Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Ignore virtual environment
+venv/
+.venv/
+
+# Ignore migrations (optional, but good for team projects)
+core/migrations/
+
+# Ignore Django secret key file
+.env
+.env.*
+
+frontend/node_modules
+backend/__pycache__
+backend/venv
+
+db.sqlite3
