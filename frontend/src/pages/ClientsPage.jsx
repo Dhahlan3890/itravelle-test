@@ -9,6 +9,14 @@ const API_BASE = 'http://localhost:8000/api';
 const ClientsPage = () => {
   const [clients, setClients] = useState([]);
   const [roleFilter, setRoleFilter] = useState('');
+  const [agentFilter, setAgentFilter] = useState('');
+  const [parentFilter, setParentFilter] = useState('');
+  const [subParentFilter, setSubParentFilter] = useState('');
+  
+  const [agentOptions, setAgentOptions] = useState([]);
+  const [clientOptions, setClientOptions] = useState([]);
+  const [subClientOptions, setSubClientOptions] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedClient, setSelectedClient] = useState(null);
@@ -16,16 +24,47 @@ const ClientsPage = () => {
 
   useEffect(() => {
     fetchClients();
-  }, [search, roleFilter]);
+  }, [search, roleFilter, agentFilter, parentFilter, subParentFilter]);
+
+  useEffect(() => {
+    fetchFilterOptions();
+  }, [agentFilter, parentFilter]);
 
   const fetchClients = async () => {
     try {
-      const res = await axios.get(`${API_BASE}/clients/?search=${search}&role=${roleFilter}`);
+      const url = `${API_BASE}/clients/?search=${search}&role=${roleFilter}&agent_id=${agentFilter}&parent_id=${parentFilter}&sub_parent_id=${subParentFilter}`;
+      const res = await axios.get(url);
       setClients(res.data);
     } catch (err) {
       console.error("Error fetching clients:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchFilterOptions = async () => {
+    try {
+      // Fetch Agents
+      const agentRes = await axios.get(`${API_BASE}/clients/?role=Agent`);
+      setAgentOptions(agentRes.data);
+
+      // Fetch Clients for selected Agent
+      if (agentFilter) {
+        const clientRes = await axios.get(`${API_BASE}/clients/?role=Client&agent_id=${agentFilter}`);
+        setClientOptions(clientRes.data);
+      } else {
+        setClientOptions([]);
+      }
+
+      // Fetch Sub-clients for selected Client
+      if (parentFilter) {
+        const subRes = await axios.get(`${API_BASE}/clients/?role=Sub-client&parent_id=${parentFilter}`);
+        setSubClientOptions(subRes.data);
+      } else {
+        setSubClientOptions([]);
+      }
+    } catch (err) {
+      console.error("Error fetching filter options:", err);
     }
   };
 
@@ -71,8 +110,8 @@ const ClientsPage = () => {
       </div>
 
       <div className="glass-panel" style={{ padding: '20px' }}>
-        <div style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
-          <div style={{ position: 'relative', flex: 1 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
+          <div style={{ position: 'relative', flex: '1 1 300px' }}>
             <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
             <input 
               type="text" 
@@ -82,11 +121,17 @@ const ClientsPage = () => {
               style={{ width: '100%', paddingLeft: '40px' }}
             />
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '200px' }}>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '180px' }}>
             <Filter size={18} style={{ color: 'var(--text-tertiary)' }} />
             <select 
               value={roleFilter} 
-              onChange={(e) => setRoleFilter(e.target.value)}
+              onChange={(e) => {
+                setRoleFilter(e.target.value);
+                setAgentFilter('');
+                setParentFilter('');
+                setSubParentFilter('');
+              }}
               style={{ flex: 1 }}
             >
               <option value="">All Roles</option>
@@ -97,6 +142,53 @@ const ClientsPage = () => {
               <option value="Direct Requester">Direct Requester</option>
             </select>
           </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '180px' }}>
+            <Briefcase size={18} style={{ color: 'var(--text-tertiary)' }} />
+            <select 
+              value={agentFilter} 
+              onChange={(e) => {
+                setAgentFilter(e.target.value);
+                setParentFilter('');
+                setSubParentFilter('');
+              }}
+              style={{ flex: 1 }}
+            >
+              <option value="">All Agents</option>
+              {agentOptions.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+          </div>
+
+          {(agentFilter || roleFilter === 'Client' || roleFilter === 'Sub-client' || roleFilter === 'Requester') && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '180px' }}>
+              <User size={18} style={{ color: 'var(--text-tertiary)' }} />
+              <select 
+                value={parentFilter} 
+                onChange={(e) => {
+                  setParentFilter(e.target.value);
+                  setSubParentFilter('');
+                }}
+                style={{ flex: 1 }}
+              >
+                <option value="">All Clients</option>
+                {clientOptions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+          )}
+
+          {(parentFilter || roleFilter === 'Sub-client' || roleFilter === 'Requester') && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '180px' }}>
+              <Users size={18} style={{ color: 'var(--text-tertiary)' }} />
+              <select 
+                value={subParentFilter} 
+                onChange={(e) => setSubParentFilter(e.target.value)}
+                style={{ flex: 1 }}
+              >
+                <option value="">All Sub-clients</option>
+                {subClientOptions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+          )}
         </div>
 
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>

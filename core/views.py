@@ -16,11 +16,21 @@ class ClientViewSet(viewsets.ModelViewSet):
         queryset = Client.objects.all().order_by('-created_at')
         role = self.request.query_params.get('role')
         search = self.request.query_params.get('search')
+        agent_id = self.request.query_params.get('agent_id')
+        parent_id = self.request.query_params.get('parent_id')
+        sub_parent_id = self.request.query_params.get('sub_parent_id')
         
         if role:
             queryset = queryset.filter(role=role)
         if search:
             queryset = queryset.filter(name__icontains=search)
+        if agent_id:
+            queryset = queryset.filter(agent_id=agent_id)
+        if parent_id:
+            queryset = queryset.filter(parent_client_id=parent_id)
+        if sub_parent_id:
+            queryset = queryset.filter(sub_client_parent_id=sub_parent_id)
+            
         return queryset
 
     @action(detail=True, methods=['get'])
