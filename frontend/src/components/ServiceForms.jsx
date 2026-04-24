@@ -17,10 +17,33 @@ export const FlightForm = ({ leadId, onCancel, onSuccess, metadata }) => {
     trip_type: 'One Way'
   });
 
+  const [originOptions, setOriginOptions] = useState([]);
+  const [destOptions, setDestOptions] = useState([]);
+  const [loading, setLoading] = useState({ origin: false, dest: false });
+
+  const handleOriginSearch = async (query) => {
+    if (!query || query.length < 2) return;
+    setLoading(prev => ({...prev, origin: true}));
+    try {
+      const res = await axios.get(`${API_BASE}/metadata/airports/?q=${query}`);
+      setOriginOptions(res.data);
+    } catch (err) { console.error(err); }
+    finally { setLoading(prev => ({...prev, origin: false})); }
+  };
+
+  const handleDestSearch = async (query) => {
+    if (!query || query.length < 2) return;
+    setLoading(prev => ({...prev, dest: true}));
+    try {
+      const res = await axios.get(`${API_BASE}/metadata/airports/?q=${query}`);
+      setDestOptions(res.data);
+    } catch (err) { console.error(err); }
+    finally { setLoading(prev => ({...prev, dest: false})); }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      // Create a copy of formData to send, ensuring return_date is only sent if needed
       const dataToSend = { ...formData };
       if (formData.trip_type !== 'Return') {
         dataToSend.return_date = null;
@@ -36,17 +59,23 @@ export const FlightForm = ({ leadId, onCancel, onSuccess, metadata }) => {
       <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
         <SearchableSelect 
           label="Origin"
-          placeholder="Select Airport"
-          options={metadata.airports || []}
+          placeholder={loading.origin ? "Searching..." : "Type city/airport"}
+          options={originOptions}
           value={formData.origin}
-          onChange={val => setFormData({...formData, origin: val})}
+          onSearch={handleOriginSearch}
+          onChange={val => {
+            setFormData({...formData, origin: val});
+          }}
         />
         <SearchableSelect 
           label="Destination"
-          placeholder="Select Airport"
-          options={metadata.airports || []}
+          placeholder={loading.dest ? "Searching..." : "Type city/airport"}
+          options={destOptions}
           value={formData.destination}
-          onChange={val => setFormData({...formData, destination: val})}
+          onSearch={handleDestSearch}
+          onChange={val => {
+            setFormData({...formData, destination: val});
+          }}
         />
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
           <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Departure</label>

@@ -4,6 +4,7 @@ import { LayoutDashboard, Users, ChevronDown, ChevronRight, Briefcase } from 'lu
 
 const Sidebar = () => {
   const [operationsOpen, setOperationsOpen] = useState(true);
+  const [clientsOpen, setClientsOpen] = useState(true);
 
   return (
     <div className="sidebar" style={{
@@ -77,6 +78,48 @@ const Sidebar = () => {
                 })}
               >
                 Leads
+              </NavLink>
+            </div>
+          )}
+        </div>
+
+        <div>
+          <button 
+            onClick={() => setClientsOpen(!clientsOpen)}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '12px',
+              backgroundColor: 'transparent',
+              color: 'var(--text-secondary)',
+              borderRadius: '8px'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <Users size={20} />
+              <span>Clients</span>
+            </div>
+            {clientsOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          </button>
+          
+          {clientsOpen && (
+            <div style={{ paddingLeft: '32px', marginTop: '4px' }}>
+              <NavLink 
+                to="/clients" 
+                style={({ isActive }) => ({
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '10px 12px',
+                  color: isActive ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                  textDecoration: 'none',
+                  fontSize: '14px',
+                  borderRadius: '6px',
+                  backgroundColor: isActive ? 'rgba(245, 158, 11, 0.1)' : 'transparent'
+                })}
+              >
+                Management
               </NavLink>
             </div>
           )}

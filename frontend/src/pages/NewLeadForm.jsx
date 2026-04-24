@@ -10,7 +10,13 @@ const NewLeadForm = () => {
   const navigate = useNavigate();
   const [tboCountries, setTboCountries] = useState([]);
   const [tboCities, setTboCities] = useState([]);
+  const [agents, setAgents] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [subClients, setSubClients] = useState([]);
+  const [requesters, setRequesters] = useState([]);
+  const [directRequesters, setDirectRequesters] = useState([]);
   const [loading, setLoading] = useState({ countries: false, cities: false });
+  const [leadType, setLeadType] = useState('Agent'); // 'Agent' or 'Direct'
   
   // Internal state to track codes for API calls
   const [selectionCodes, setSelectionCodes] = useState({
@@ -20,28 +26,35 @@ const NewLeadForm = () => {
 
   const [formData, setFormData] = useState({
     name: '',
-    client_account: '',
-    sub_account: '',
+    agent: '',
+    client: '',
+    sub_client: '',
     contact_person: '',
-    country: '', // This will store the NAME
-    city: '',    // This will store the NAME
+    country: '',
+    city: '',
     pax_count: 1,
     start_date: '',
     end_date: '',
     currency: 'USD'
   });
 
-  // Fetch TBO countries on mount
+  // Fetch initial data
   useEffect(() => {
-    const fetchCountries = async () => {
+    const fetchInitialData = async () => {
       setLoading(prev => ({...prev, countries: true}));
       try {
-        const res = await axios.get(`${API_BASE}/metadata/countries/`);
-        setTboCountries(res.data);
+        const [countryRes, agentRes, directRes] = await Promise.all([
+          axios.get(`${API_BASE}/metadata/countries/`),
+          axios.get(`${API_BASE}/clients/?role=Agent`),
+          axios.get(`${API_BASE}/clients/?role=Direct Requester`)
+        ]);
+        setTboCountries(countryRes.data);
+        setAgents(agentRes.data.map(a => ({ code: a.id, name: a.name })));
+        setDirectRequesters(directRes.data.map(a => ({ code: a.id, name: a.name })));
       } catch (err) { console.error(err); }
       finally { setLoading(prev => ({...prev, countries: false})); }
     };
-    fetchCountries();
+    fetchInitialData();
   }, []);
 
   // Fetch TBO cities when country code changes
@@ -57,14 +70,63 @@ const NewLeadForm = () => {
     if (selectionCodes.country) fetchCities();
   }, [selectionCodes.country]);
 
+  // Fetch Clients when Agent changes
+  useEffect(() => {
+    const fetchLinkedClients = async () => {
+      try {
+        const res = await axios.get(`${API_BASE}/clients/?role=Client`);
+        setClients(res.data.filter(c => c.agent === formData.agent).map(c => ({ code: c.id, name: c.name })));
+      } catch (err) { console.error(err); }
+    };
+    if (formData.agent && leadType === 'Agent') fetchLinkedClients();
+    else setClients([]);
+  }, [formData.agent, leadType]);
+
+  // Fetch Sub-Clients & Requesters when Client changes
+  useEffect(() => {
+    const fetchLinkedSubData = async () => {
+      try {
+        const [subRes, reqRes] = await Promise.all([
+          axios.get(`${API_BASE}/clients/?role=Sub-client`),
+          axios.get(`${API_BASE}/clients/?role=Requester`)
+        ]);
+        setSubClients(subRes.data.filter(c => c.parent_client === formData.client).map(c => ({ code: c.id, name: c.name })));
+        setRequesters(reqRes.data.filter(c => c.parent_client === formData.client).map(c => ({ code: c.id, name: c.name })));
+      } catch (err) { console.error(err); }
+    };
+    if (formData.client && leadType === 'Agent') fetchLinkedSubData();
+    else {
+      setSubClients([]);
+      setRequesters([]);
+    }
+  }, [formData.client, leadType]);
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleTypeChange = (type) => {
+    setLeadType(type);
+    // Clear selections when switching type
+    setFormData({
+      ...formData,
+      agent: '',
+      client: '',
+      sub_client: '',
+      contact_person: ''
+    });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(`${API_BASE}/leads/`, formData);
+      await axios.post(`${API_BASE}/leads/`, {
+        ...formData,
+        agent: formData.agent || null,
+        client: formData.client || null,
+        sub_client: formData.sub_client || null,
+        contact_person: formData.contact_person || null
+      });
       navigate('/leads');
     } catch (err) { console.error(err); }
   };
@@ -82,26 +144,89 @@ const NewLeadForm = () => {
       <div className="glass-panel" style={{ padding: '32px' }}>
         <h1 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '32px' }}>Create New Lead</h1>
 
+        {/* Lead Type Toggle */}
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '32px', backgroundColor: 'var(--bg-tertiary)', padding: '4px', borderRadius: '10px', width: 'fit-content' }}>
+          <button 
+            type="button"
+            onClick={() => handleTypeChange('Agent')}
+            style={{ 
+              padding: '8px 20px', 
+              borderRadius: '8px', 
+              fontSize: '14px',
+              fontWeight: '600',
+              backgroundColor: leadType === 'Agent' ? 'var(--accent-primary)' : 'transparent',
+              color: leadType === 'Agent' ? 'var(--bg-primary)' : 'var(--text-secondary)'
+            }}
+          >
+            Agent Lead
+          </button>
+          <button 
+            type="button"
+            onClick={() => handleTypeChange('Direct')}
+            style={{ 
+              padding: '8px 20px', 
+              borderRadius: '8px', 
+              fontSize: '14px',
+              fontWeight: '600',
+              backgroundColor: leadType === 'Direct' ? 'var(--accent-primary)' : 'transparent',
+              color: leadType === 'Direct' ? 'var(--bg-primary)' : 'var(--text-secondary)'
+            }}
+          >
+            Direct Lead
+          </button>
+        </div>
+
         <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', gridColumn: 'span 2' }}>
             <label style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Lead Name</label>
-            <input name="name" required value={formData.name} onChange={handleChange} placeholder="e.g. Colombo Trip" />
+            <input name="name" required value={formData.name} onChange={handleChange} placeholder="e.g. Colombo Trip" style={{ width: '100%' }} />
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <label style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Client Account</label>
-            <input name="client_account" required value={formData.client_account} onChange={handleChange} placeholder="e.g. Nestle" />
-          </div>
+          {leadType === 'Agent' ? (
+            <>
+              <SearchableSelect 
+                label="Agent"
+                placeholder="Select Agent"
+                options={agents}
+                value={formData.agent}
+                onChange={val => setFormData({ ...formData, agent: val, client: '', sub_client: '', contact_person: '' })}
+              />
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <label style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Contact Person</label>
-            <input name="contact_person" required value={formData.contact_person} onChange={handleChange} placeholder="e.g. John Doe" />
-          </div>
+              <SearchableSelect 
+                label="Client"
+                placeholder="Select Client"
+                options={clients}
+                value={formData.client}
+                onChange={val => setFormData({ ...formData, client: val, sub_client: '', contact_person: '' })}
+              />
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <label style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Sub-Account</label>
-            <input name="sub_account" value={formData.sub_account} onChange={handleChange} placeholder="e.g. Sales Dept" />
-          </div>
+              <SearchableSelect 
+                label="Sub-Client"
+                placeholder="Select Sub-Client"
+                options={subClients}
+                value={formData.sub_client}
+                onChange={val => setFormData({ ...formData, sub_client: val })}
+              />
+
+              <SearchableSelect 
+                label="Contact Person (Requester)"
+                placeholder="Select Requester"
+                options={requesters}
+                value={formData.contact_person}
+                onChange={val => setFormData({ ...formData, contact_person: val })}
+              />
+            </>
+          ) : (
+            <div style={{ gridColumn: 'span 2' }}>
+              <SearchableSelect 
+                label="Direct Requester"
+                placeholder="Select Direct Requester"
+                options={directRequesters}
+                value={formData.contact_person}
+                onChange={val => setFormData({ ...formData, contact_person: val })}
+              />
+            </div>
+          )}
 
           <SearchableSelect 
             label="Country"

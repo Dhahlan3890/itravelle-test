@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, ChevronDown } from 'lucide-react';
 
-const SearchableSelect = ({ options, value, onChange, placeholder, label }) => {
+const SearchableSelect = ({ options, value, onChange, onSearch, placeholder, label }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const wrapperRef = useRef(null);
@@ -16,7 +16,17 @@ const SearchableSelect = ({ options, value, onChange, placeholder, label }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [wrapperRef]);
 
-  const filteredOptions = options.filter(opt => 
+  // Handle async search
+  useEffect(() => {
+    if (onSearch && searchTerm) {
+      const delayDebounceFn = setTimeout(() => {
+        onSearch(searchTerm);
+      }, 500);
+      return () => clearTimeout(delayDebounceFn);
+    }
+  }, [searchTerm, onSearch]);
+
+  const filteredOptions = onSearch ? options : options.filter(opt => 
     opt.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     opt.code.toLowerCase().includes(searchTerm.toLowerCase())
   );

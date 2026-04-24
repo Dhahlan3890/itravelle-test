@@ -1,5 +1,28 @@
 from django.db import models
 
+class Client(models.Model):
+    ROLE_CHOICES = [
+        ('Agent', 'Agent'),
+        ('Client', 'Client'),
+        ('Sub-client', 'Sub-client'),
+        ('Requester', 'Requester'),
+        ('Direct Requester', 'Direct Requester'),
+    ]
+    name = models.CharField(max_length=255)
+    role = models.CharField(max_length=50, choices=ROLE_CHOICES)
+    # Hierarchy
+    agent = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='agent_descendants')
+    parent_client = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='client_descendants')
+    sub_client_parent = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='sub_client_descendants')
+    
+    currency = models.CharField(max_length=10, default='USD')
+    email = models.EmailField(blank=True, null=True)
+    phone = models.CharField(max_length=20, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.role})"
+
 class Lead(models.Model):
     STATUS_CHOICES = [
         ('Pending', 'Pending'),
@@ -8,9 +31,13 @@ class Lead(models.Model):
         ('Cancelled', 'Cancelled'),
     ]
     name = models.CharField(max_length=255)
-    client_account = models.CharField(max_length=255)
-    sub_account = models.CharField(max_length=255, blank=True, null=True)
-    contact_person = models.CharField(max_length=255)
+    
+    # Hierarchical Client Links
+    agent = models.ForeignKey(Client, on_delete=models.SET_NULL, null=True, blank=True, related_name='agent_leads')
+    client = models.ForeignKey(Client, on_delete=models.SET_NULL, null=True, blank=True, related_name='client_leads')
+    sub_client = models.ForeignKey(Client, on_delete=models.SET_NULL, null=True, blank=True, related_name='sub_client_leads')
+    contact_person = models.ForeignKey(Client, on_delete=models.SET_NULL, null=True, blank=True, related_name='requester_leads')
+    
     country = models.CharField(max_length=100)
     city = models.CharField(max_length=100)
     pax_count = models.IntegerField(default=1)

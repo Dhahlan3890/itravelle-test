@@ -1,10 +1,52 @@
+from django.db import models
+from django.db.models import Q
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from .models import Lead, FlightService, AccommodationService, ServiceQuote
-from .serializers import LeadSerializer, FlightServiceSerializer, AccommodationServiceSerializer, ServiceQuoteSerializer
-from .services import search_flights_serp, search_hotels_serp, search_hotels_tbo, get_tbo_hotels, get_tbo_countries, get_tbo_cities
+from .models import Lead, FlightService, AccommodationService, ServiceQuote, Client
+from .serializers import LeadSerializer, FlightServiceSerializer, AccommodationServiceSerializer, ServiceQuoteSerializer, ClientSerializer
+from .services import search_flights_serp, search_hotels_serp, search_hotels_tbo, get_tbo_hotels, get_tbo_countries, get_tbo_cities, get_serp_airports
 import random
+
+class ClientViewSet(viewsets.ModelViewSet):
+    queryset = Client.objects.all().order_by('-created_at')
+    serializer_class = ClientSerializer
+
+    def get_queryset(self):
+        queryset = Client.objects.all().order_by('-created_at')
+        role = self.request.query_params.get('role')
+        search = self.request.query_params.get('search')
+        
+        if role:
+            queryset = queryset.filter(role=role)
+        if search:
+            queryset = queryset.filter(name__icontains=search)
+        return queryset
+
+    @action(detail=True, methods=['get'])
+    def leads(self, request, pk=None):
+        client = self.get_object()
+        # Leads where this client is agent, client, sub_client, or contact_person
+        leads = Lead.objects.filter(
+            Q(agent=client) | 
+            Q(client=client) | 
+            Q(sub_client=client) | 
+            Q(contact_person=client)
+        ).distinct()
+        serializer = LeadSerializer(leads, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['get'])
+    def children(self, request, pk=None):
+        client = self.get_object()
+        # Descendants linked to this client as agent or parent
+        descendants = Client.objects.filter(
+            Q(agent=client) | 
+            Q(parent_client=client) | 
+            Q(sub_client_parent=client)
+        ).exclude(id=client.id).distinct()
+        serializer = ClientSerializer(descendants, many=True)
+        return Response(serializer.data)
 
 class LeadViewSet(viewsets.ModelViewSet):
     queryset = Lead.objects.all().order_by('-created_at')
@@ -194,3 +236,11 @@ class MetadataViewSet(viewsets.ViewSet):
             return Response({'error': 'country_code is required'}, status=400)
         cities = get_tbo_cities(country_code)
         return Response([{'code': str(c.get('Code')), 'name': c.get('Name')} for c in cities])
+
+    @action(detail=False, methods=['get'])
+    def airports(self, request):
+        query = request.query_params.get('q')
+        if not query:
+            return Response([])
+        airports = get_serp_airports(query)
+        return Response(airports)

@@ -1,9 +1,10 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import LeadViewSet, FlightServiceViewSet, AccommodationServiceViewSet, ServiceQuoteViewSet, MetadataViewSet
+from .views import LeadViewSet, FlightServiceViewSet, AccommodationServiceViewSet, ServiceQuoteViewSet, MetadataViewSet, ClientViewSet
 
 router = DefaultRouter()
 router.register(r'leads', LeadViewSet)
+router.register(r'clients', ClientViewSet)
 router.register(r'flights', FlightServiceViewSet)
 router.register(r'accommodations', AccommodationServiceViewSet)
 router.register(r'quotes', ServiceQuoteViewSet)

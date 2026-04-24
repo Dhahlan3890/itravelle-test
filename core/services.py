@@ -88,6 +88,50 @@ def search_flights_serp(origin, destination, departure_date, return_date=None, a
         print(f"SerpAPI Exception: {e}")
         return []
 
+def get_serp_airports(query):
+    if not SERP_API_KEY or not query:
+        return []
+    
+    url = "https://serpapi.com/search"
+    params = {
+        "engine": "google_flights_autocomplete",
+        "q": query,
+        "api_key": SERP_API_KEY
+    }
+    
+    try:
+        response = requests.get(url, params=params)
+        data = response.json()
+        
+        suggestions = data.get('suggestions', [])
+        airports = []
+        for s in suggestions:
+            # Check for city-level suggestions which might have airports
+            for airport in s.get('airports', []):
+                airports.append({
+                    'code': airport.get('id'),
+                    'name': f"{airport.get('name')} ({airport.get('id')})"
+                })
+            # Also include the suggestion itself if it has an ID and is an airport
+            if s.get('id') and len(s.get('id')) == 3: # Likely IATA code
+                airports.append({
+                    'code': s.get('id'),
+                    'name': s.get('name')
+                })
+        
+        # Deduplicate
+        seen = set()
+        unique_airports = []
+        for a in airports:
+            if a['code'] not in seen:
+                unique_airports.append(a)
+                seen.add(a['code'])
+        
+        return unique_airports[:10]
+    except Exception as e:
+        print(f"SerpAPI Airport Error: {e}")
+        return []
+
 def search_hotels_serp(city, check_in, check_out):
     if not SERP_API_KEY:
         return []
